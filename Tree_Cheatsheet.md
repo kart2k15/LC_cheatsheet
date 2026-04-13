@@ -1,264 +1,319 @@
-# Tree Recursion Skeleton Cheatsheet
- 
-## The Universal Template
- 
-Every binary tree problem uses this same skeleton:
- 
+# Tree Recursion — Mental Model Cheatsheet
+
+---
+
+## The Universal Skeleton
+
+Every binary tree problem uses this:
+
 ```python
 def solve(node):
-    if not node:
-        return BASE_CASE
-    
+    # 1. BASE CASE — node doesn't exist
+    if node is None:
+        return something
+
+    # 2. EVAL (optional — WHERE you put this = which traversal)
+
+    # 3. RECURSE LEFT — PAUSES here until left subtree fully finishes
+    left_result = solve(node.left)
+
+    # 4. RECURSE RIGHT — PAUSES here until right subtree fully finishes
+    right_result = solve(node.right)
+
+    # 5. COMBINE + RETURN — goes BACK UP to whoever called me
+    return something
+```
+
+**Key insight:** Every recursive call is a PAUSE. The function stops at that line,
+waits for the entire subtree to finish, gets the return value, THEN moves to the next line.
+
+---
+
+## Binary Tree (BT) vs Binary Search Tree (BST)
+
+**Binary Tree (BT):** Any tree where each node has at most 2 children.
+No rules about values. Could be anything anywhere.
+
+```
+      5
+     / \
+    9    2
+   /
+  7
+```
+
+**Binary Search Tree (BST):** A binary tree WITH a rule:
+left child < parent < right child. Always. At every node.
+
+```
+      20
+     /  \
+    10    30
+   / \   / \
+  5  15 25  35
+```
+
+**Why it matters:**
+- BT problems — you must visit every node. No shortcuts.
+- BST problems — you can skip entire subtrees because you know where values are.
+  Looking for 25? It's > 20 so go right. It's < 30 so go left. Found it. Never touched left subtree.
+- In-order traversal on BST = sorted output. Always. This is the main BST trick on LC.
+
+---
+
+## The 4 Traversals
+
+Four ways to visit every node in a tree. Three are DFS (go deep). One is BFS (go wide).
+
+```
+        *
+       / \
+      -    3
+     / \
+    10   5
+```
+
+### Pre-order (DFS): ME first, then left, then right
+
+```
+Read: *, -, 10, 5, 3
+```
+
+"I do my work BEFORE asking my children."
+
+The eval step goes BEFORE recursive calls:
+
+```python
+def solve(node):
+    if node is None:
+        return
+
+    DO_WORK_HERE          # ← pre-order: eval BEFORE children
+    solve(node.left)
+    solve(node.right)
+```
+
+**Use cases:**
+- Prefix notation (Polish notation): `* - 10 5 3` — operator before operands
+- Passing info DOWNWARD from parent to child
+- Decision tree inference: start at root, evaluate split condition, go left or right
+- Copying/serializing a tree (save root first, then children)
+
+**LC pattern:** Problem gives you info at the top that you carry downward.
+Example: "Count Good Nodes" — carry max_so_far down, evaluate BEFORE recursing.
+
+```python
+def goodNodes(node, max_so_far):
+    if node is None:
+        return 0
+
+    # EVAL — pre-order: check myself BEFORE going to kids
+    count = 1 if node.val >= max_so_far else 0
+    new_max = max(max_so_far, node.val)
+
+    # RECURSE
+    count += goodNodes(node.left, new_max)
+    count += goodNodes(node.right, new_max)
+
+    return count
+```
+
+---
+
+### In-order (DFS): Left first, then ME, then right
+
+```
+Read: 10, -, 5, *, 3
+```
+
+"I let my left child go first, then do my work, then let my right child go."
+
+The eval step goes BETWEEN recursive calls:
+
+```python
+def solve(node):
+    if node is None:
+        return
+
+    solve(node.left)
+    DO_WORK_HERE          # ← in-order: eval BETWEEN children
+    solve(node.right)
+```
+
+**Use cases:**
+- Infix notation: `(10 - 5) * 3` — operator between operands — how humans write math
+- BST → sorted output: in-order on BST ALWAYS gives sorted order
+- Kth smallest element in BST — in-order, count until you hit K
+
+**LC pattern:** Problem involves BST + needs sorted order.
+
+```python
+def in_order(node):
+    if node is None:
+        return []
+
+    left_result = in_order(node.left)
+    my_val = [node.val]
+    right_result = in_order(node.right)
+
+    return left_result + my_val + right_result
+
+# On BST:     20
+#            /  \
+#          10    30
+# Returns: [10, 20, 30] ← sorted
+```
+
+**Why BST + in-order = sorted:**
+Left child is always smaller → gets read first.
+Then me.
+Right child is always bigger → gets read last.
+Smaller, me, bigger. That's sorted order. At every level.
+
+---
+
+### Post-order (DFS): Left first, then right, then ME last
+
+```
+Read: 10, 5, -, 3, *
+```
+
+"I let both children finish first, then do my work with their answers."
+
+The eval step goes AFTER recursive calls:
+
+```python
+def solve(node):
+    if node is None:
+        return something
+
     left_result = solve(node.left)
     right_result = solve(node.right)
-    
-    return COMBINE(left_result, right_result)
+    DO_WORK_HERE          # ← post-order: eval AFTER children
+    return combine(left_result, right_result)
 ```
- 
-You only change **BASE_CASE** and **COMBINE**. The structure never changes.
- 
----
- 
-## How Each Problem Maps to the Skeleton
- 
-### Max Depth
-- **BASE_CASE:** `return 0` (None has no depth)
-- **COMBINE:** `return 1 + max(left_result, right_result)` (I'm 1 deeper than my tallest child)
- 
+
+**Use cases:**
+- Postfix notation (Reverse Polish): `10 5 - 3 *` — operator after operands.
+  This is how stack-based calculators work: push 10, push 5, see minus,
+  pop both, push 5, push 3, see multiply, pop both, 15.
+- Computing anything that needs children's answers first
+- Deleting a tree: delete children before parent (can't delete parent first, you'd lose references to children)
+- Calculating directory sizes: file sizes bubble up from leaves
+
+**LC pattern:** You NEED your children's answers before you can compute yours.
+
 ```python
 def maxDepth(node):
-    if not node:
+    if node is None:
         return 0
+
     left_depth = maxDepth(node.left)
     right_depth = maxDepth(node.right)
+
+    # EVAL + COMBINE — post-order: I need kids' answers first
     return 1 + max(left_depth, right_depth)
 ```
- 
+
+**Why post-order here:** You can't know your depth until both children tell you theirs.
+You're computing from the bottom up — leaves say "0", parents add 1.
+This is like prefix sum but on a tree: values accumulate upward from leaves to root.
+
 ---
- 
-### Min Depth
-- **BASE_CASE:** `return 0`
-- **COMBINE:** tricky — if one side is None, take the other side (don't take min with 0)
- 
-```python
-def minDepth(node):
-    if not node:
-        return 0
-    left = minDepth(node.left)
-    right = minDepth(node.right)
-    if left == 0:
-        return 1 + right
-    if right == 0:
-        return 1 + left
-    return 1 + min(left, right)
+
+### Level-order (BFS): Go wide, level by level
+
 ```
- 
+Read: *, -, 3, 10, 5
+```
+
+NOT DFS. Uses a queue, not recursion.
+
+```python
+from collections import deque
+
+def level_order(root):
+    if root is None:
+        return []
+
+    queue = deque([root])
+    result = []
+
+    while queue:
+        level_size = len(queue)
+        for _ in range(level_size):
+            node = queue.popleft()
+            result.append(node.val)
+            if node.left:
+                queue.append(node.left)
+            if node.right:
+                queue.append(node.right)
+
+    return result
+```
+
+**Use cases:**
+- Shortest path in tree (fewest edges)
+- Level-by-level processing (right side view, zigzag, level sums)
+- "Nearest" anything in a tree
+
 ---
- 
-### Is Balanced (height difference <= 1 at every node)
-- **BASE_CASE:** `return 0`
-- **COMBINE:** if either child returns -1 OR height diff > 1, return -1 (unbalanced). Else return height.
- 
-```python
-def isBalanced(root):
-    return getHeight(root) != -1
- 
-def getHeight(node):
-    if not node:
-        return 0
-    left = getHeight(node.left)
-    right = getHeight(node.right)
-    if left == -1 or right == -1:
-        return -1
-    if abs(left - right) > 1:
-        return -1
-    return 1 + max(left, right)
-```
- 
+
+## The Decision — Which Traversal Do I Need?
+
+Don't think about traversal names. Ask ONE question:
+
+**"Do I need info from my PARENT or from my CHILDREN?"**
+
+| I need...                           | Eval goes...        | Traversal   |
+|-------------------------------------|---------------------|-------------|
+| Info from parent to pass DOWN       | BEFORE recurse      | Pre-order   |
+| Sorted output from BST             | BETWEEN recurse     | In-order    |
+| Children's answers to compute mine  | AFTER recurse       | Post-order  |
+| Level-by-level processing           | Use BFS, not DFS    | Level-order |
+
 ---
- 
-### Diameter (longest path between any two nodes)
-- **BASE_CASE:** `return 0`
-- **COMBINE:** path through me = left + right. Update global max. Return 1 + max(left, right) as my height.
- 
-```python
-def diameterOfBinaryTree(root):
-    max_diameter = [0]
-    
-    def getHeight(node):
-        if not node:
-            return 0
-        left = getHeight(node.left)
-        right = getHeight(node.right)
-        max_diameter[0] = max(max_diameter[0], left + right)
-        return 1 + max(left, right)
-    
-    getHeight(root)
-    return max_diameter[0]
+
+## Prefix Sum Analogy
+
+**Prefix sum on array:** Running total left to right. Each position stores sum of everything before it.
+
+**Post-order on tree:** Running total bottom to top. Each node stores result of everything below it.
+
 ```
- 
+Array prefix sum:    [1, 2, 3, 4] → [1, 3, 6, 10]
+                      each element = me + everything before me
+
+Tree post-order:        3          depth: 3
+                       / \                / \
+                      5    1             2    1
+                     /                  /
+                    9                  1
+                    each node = 1 + max of everything below me
+```
+
+Both accumulate values in one direction.
+Prefix sum accumulates left → right.
+Post-order accumulates bottom → up (leaves → root).
+
 ---
- 
-### Same Tree
-- **BASE_CASE:** both None → `return True`. One None → `return False`.
-- **COMBINE:** my values match AND left subtrees match AND right subtrees match.
- 
-```python
-def isSameTree(p, q):
-    if not p and not q:
-        return True
-    if not p or not q:
-        return False
-    if p.val != q.val:
-        return False
-    return isSameTree(p.left, q.left) and isSameTree(p.right, q.right)
-```
- 
----
- 
-### Invert Tree (mirror it)
-- **BASE_CASE:** `return None`
-- **COMBINE:** swap my children, return myself.
- 
-```python
-def invertTree(node):
-    if not node:
-        return None
-    left = invertTree(node.left)
-    right = invertTree(node.right)
-    node.left = right
-    node.right = left
-    return node
-```
- 
----
- 
-### Path Sum (does any root-to-leaf path sum to target?)
-- **BASE_CASE:** None → `return False`
-- **COMBINE:** am I a leaf AND remaining target == my val? Else check left or right.
- 
-```python
-def hasPathSum(node, target):
-    if not node:
-        return False
-    if not node.left and not node.right:
-        return node.val == target
-    return (hasPathSum(node.left, target - node.val) or 
-            hasPathSum(node.right, target - node.val))
-```
- 
----
- 
-### Lowest Common Ancestor (LCA)
-- **BASE_CASE:** None → `return None`. Found p or q → `return node`.
-- **COMBINE:** both sides returned something → I'm the LCA. One side returned → pass it up.
- 
-```python
-def lowestCommonAncestor(root, p, q):
-    if not root:
-        return None
-    if root == p or root == q:
-        return root
-    left = lowestCommonAncestor(root.left, p, q)
-    right = lowestCommonAncestor(root.right, p, q)
-    if left and right:
-        return root
-    if left:
-        return left
-    return right
-```
- 
----
- 
-### Count Nodes
-- **BASE_CASE:** `return 0`
-- **COMBINE:** `return 1 + left + right`
- 
-```python
-def countNodes(node):
-    if not node:
-        return 0
-    left = countNodes(node.left)
-    right = countNodes(node.right)
-    return 1 + left + right
-```
- 
----
- 
-### Max Path Sum (path can start/end anywhere)
-- **BASE_CASE:** `return 0`
-- **COMBINE:** path through me = me + left + right (update global max). Return me + max(left, right) as best one-sided path.
- 
-```python
-def maxPathSum(root):
-    max_sum = [float('-inf')]
-    
-    def solve(node):
-        if not node:
-            return 0
-        left = max(0, solve(node.left))
-        right = max(0, solve(node.right))
-        max_sum[0] = max(max_sum[0], node.val + left + right)
-        return node.val + max(left, right)
-    
-    solve(root)
-    return max_sum[0]
-```
- 
----
- 
-### Validate BST
-- **Different skeleton** — pass constraints DOWN instead of bubbling results UP.
- 
-```python
-def isValidBST(node, lo=float('-inf'), hi=float('inf')):
-    if not node:
-        return True
-    if node.val <= lo or node.val >= hi:
-        return False
-    return (isValidBST(node.left, lo, node.val) and 
-            isValidBST(node.right, node.val, hi))
-```
- 
----
- 
-## General Tree (N children) Version
- 
-Same skeleton, loop instead of left/right:
- 
-```python
-def solve(node):
-    if not node:
-        return BASE_CASE
-    
-    results = []
-    for child in node.children:
-        results.append(solve(child))
-    
-    return COMBINE(results)
-```
- 
-### Max Depth of N-ary Tree
- 
-```python
-def maxDepth(node):
-    if not node:
-        return 0
-    max_child = 0
-    for child in node.children:
-        child_depth = maxDepth(child)
-        if child_depth > max_child:
-            max_child = child_depth
-    return 1 + max_child
-```
- 
----
- 
-## The Pattern in Plain English
- 
-1. **Am I None?** → return the base case (0, True, False, None — depends on problem)
-2. **Ask my left child** → store its answer
-3. **Ask my right child** → store its answer
-4. **Combine their answers with mine** → return result up to my parent
- 
-Every node does the same thing. Nobody knows about the full tree. Each node only knows itself and what its children told it. That's recursion.
+
+## AI/ML Relevance
+
+**Decision Trees / Random Forest / XGBoost:**
+Inference = pre-order traversal. Start at root, evaluate split condition,
+go left or right, repeat until leaf = prediction.
+
+**NLP Parse Trees:**
+Post-order evaluation. Words (leaves) combine into phrases,
+phrases combine into clauses, clauses combine into sentence meaning.
+Bottom-up, just like maxDepth.
+
+**Expression Trees (compilers):**
+In-order = infix (human readable math).
+Pre-order = prefix (LISP programming language).
+Post-order = postfix (stack machines, bytecode).
+
+**File Systems:**
+Post-order to calculate directory sizes.
+Pre-order to list directory structure (ls -R).
