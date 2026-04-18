@@ -209,6 +209,17 @@ The only thing that changes per problem is `get_neighbors(node)`:
 
 ## Single Source vs Multi Source
 
+### The Fundamental
+
+**One BFS from node X gives you the path/distance from X to EVERY other node.** Not just one target. All of them. BFS radiates outward from one starting point.
+
+So:
+- **Same source, multiple targets?** One BFS. Start from source, find all targets in one run.
+- **Different sources?** Separate BFS per source. Starting from `a` gives you `a`'s paths. Starting from `b` gives completely different paths. Can't combine.
+- **Multiple queries with different sources?** Loop through queries, run a fresh BFS per unique source. Each needs its own visited set and its own starting product/distance.
+
+Example: LC 399 (Evaluate Division) has queries `a/c`, `b/a`, `x/x` — three different starting points. Three separate BFS runs. No shortcut.
+
 ### Single Source
 
 Start BFS from ONE node. Explore everything reachable.
