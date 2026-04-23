@@ -393,109 +393,24 @@ while q:
 * LC 1926 (Nearest Exit from Maze): `value = steps`, `combine = add 1`, `initial = 0`
 * Shortest path in unweighted graph: `value = distance`, `combine = add 1`, `initial = 0`
 
-### 7a. THE RULE — What Goes in Visited, What Goes in the Tuple
+### 7a. Visited vs Container — The One-Line Rule
 
-This is the question you WILL ask yourself every single weighted-BFS problem: "do I put the carried value in visited too?"
+**Visited always stores node identity only — at most node + direction tag. NEVER weights/costs/steps.** Those live in the container with the node.
 
-**Answer: NO. EVER. For every LC 75 graph problem.**
+**Container choice is driven by what "shortest" means in the problem:**
 
-**Visited = node ONLY.** The carried value (product, steps, cost) lives in the queue tuple, NEVER in the visited key.
-
-**Why.** Visited answers one question: "have I already processed this node?" A node is identified by its position in the graph (string name, (r,c) coordinates, integer id) — NOT by the path you took to get to it.
-
-The carried value is a per-path property. It belongs WITH the node in the queue so BFS knows which path's accumulated value to work with when it pops. But it does NOT belong in visited.
-
-**What breaks if you DO put the value in visited:**
-
-Say node X is reachable two ways:
-
-```
-Path A: start → X in 2 steps
-Path B: start → detour → X in 4 steps
-```
-
-If visited keys are `(node, value)`:
-
-1. First time we reach X with steps=2 → add `(X, 2)` to visited.
-2. BFS later reaches X via the longer path with steps=4 → check `(X, 4) in visited` → FALSE (because stored key is `(X, 2)`).
-3. So we process X AGAIN, push all its neighbors AGAIN with inflated step counts.
-4. Downstream cells get reprocessed multiple times with worse values.
-
-In a big graph with cycles this can explode into exponential revisits. And it breaks BFS's correctness guarantee: *the first pop of a node IS the best path to it.*
-
-### 7b. Why "First Pop = Best Path" — BFS's Core Guarantee
-
-BFS pops nodes in order of distance from start (fewest edges first). So the first time a node comes out of the queue, it came via a fewest-edges path. Any later arrival via some other path MUST have taken MORE edges to get there — strictly no better, never improves the answer.
-
-This is ONLY true because every edge costs the same (1 step). Which means BFS's guarantee applies to:
-
-* Unweighted graphs where you want fewest edges
-* Problems where ANY valid path's value is acceptable (LC 399 — "return any path's product")
-
-### 7c. The 3 AM Mental Test
-
-Ask yourself: **"If I reach the same node via a different path with a different value, could that second path give me a BETTER answer than the first?"**
-
-| Algorithm | Same node reached again — could second arrival be better? | Visited is... |
+| Problem asks for... | Container | Notes |
 | --- | --- | --- |
-| BFS on unweighted graph (fewest edges) | NO — first pop is already fewest edges | Just node |
-| BFS on LC 399-style (any valid path) | NO — problem accepts any path | Just node |
-| BFS on LC 1926-style grid (min steps) | NO — every step costs 1, first pop wins | Just node |
-| Dijkstra on weighted graph (min cost, variable edge weights) | YES — need to handle this | `{node: best_cost_so_far}`; process only if incoming cost < stored best |
-| Bellman-Ford (negative edges possible) | YES — need relaxation-based approach | No visited; full `dist[]` array with repeated relaxation |
+| Min edges / min steps (unweighted) | `deque` (BFS) | First pop of any node = fewest edges to it. LC 1926, all grid BFS. |
+| Any valid path's value | `deque` (BFS) | Problem accepts any path → first found wins. LC 399. |
+| Min-weight path (variable edge costs) | `heapq` (Dijkstra) | Pop in cost order, not insertion order. Not in LC 75. |
+| Min-weight path with negative edges | no container — `dist[]` array + relaxation (Bellman-Ford) | Not in LC 75. |
 
-**For LC 75: the answer is always NO. Visited = node only. Always.**
+The moment the problem moves from "min edges" to "min weighted cost with variable edge weights," you swap the container from queue to heap. Visited stays the same — node identity only.
 
-### 7d. When BFS Stops Being Enough — The Dijkstra Boundary
+**Why this works for BFS:** every edge costs 1, so the first time BFS pops a node it arrived via fewest edges. No later path can beat it → no reason to reprocess → visited = node is sufficient.
 
-BFS breaks the moment edges have DIFFERENT costs and you want MINIMUM COST (not minimum edges).
-
-Example:
-
-```
-    A
-   / \
-  10  1
- /     \
-B       C
- \     /
-  1   100
-   \ /
-    D
-```
-
-BFS from A to D:
-
-* pop A. push B (depth 1), push C (depth 1)
-* pop B. push D (depth 2)
-* pop C. D already visited → skip
-* pop D. Return 2 edges.
-
-BFS says "2 edges, shortest." But if the problem wants **minimum cost**:
-
-* A→B→D costs 10 + 1 = 11
-* A→C→D costs 1 + 100 = 101
-
-BFS found the 2-edge path (either one, by mechanics). If it returned A→C→D that's cost 101 — wrong. The RIGHT answer for min cost is A→B→D with cost 11.
-
-This is where Dijkstra comes in. Not in LC 75, but recognize the shape:
-
-**Trigger:** "minimum cost" / "cheapest path" + variable edge weights → Dijkstra, not BFS.
-
-In Dijkstra:
-
-* Min-heap instead of queue (pops in cost order, not insertion order)
-* Track `best_cost[node]` — only process a popped entry if its cost equals the stored best (skip stale heap entries)
-* First pop from heap = guaranteed best cost to that node
-
-### 7e. Summary
-
-```
-visited = set of NODES only          # this is the identity
-queue   = tuples of (node, value)    # value travels WITH the path
-```
-
-The node identity and the path's accumulated value are separate concepts. Conflating them into one visited key breaks BFS correctness. Keep them separate.
+**Why it breaks without heap for weighted:** with variable edge weights, a later path can be cheaper even if it has more edges. Queue order (FIFO) doesn't reflect cost order. Heap fixes this by popping cheapest-so-far first.
 
 ---
 
