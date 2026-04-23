@@ -393,6 +393,33 @@ while q:
 * LC 1926 (Nearest Exit from Maze): `value = steps`, `combine = add 1`, `initial = 0`
 * Shortest path in unweighted graph: `value = distance`, `combine = add 1`, `initial = 0`
 
+### 7-prefix. The Frozen Prefix Rule
+
+When you pop `(node, value)`, `value` = the path's accumulated value to reach THIS node. That value must stay **frozen** for the entire for-loop over `node`'s neighbors. Every neighbor shares the same prefix-to-node; they only differ in their own edge contribution.
+
+**Rule:** compute the new value inline inside `append`. Never reassign the local scalar.
+
+```
+# WRONG — reassignment contaminates the prefix for later neighbors
+for neighbor, weight in graph[node]:
+    if neighbor not in visited:
+        value = value * weight            # mutates shared prefix
+        q.append((neighbor, value))       # 2nd neighbor inherits 1st's multiplication
+
+# RIGHT — inline, local scalar untouched
+for neighbor, weight in graph[node]:
+    if neighbor not in visited:
+        q.append((neighbor, value * weight))
+```
+
+**Applies to every combine operation:**
+
+* LC 399: `q.append((neighbor, path_product * ratio_wt))` (multiplicative)
+* LC 1926: `q.append((nx, ny, steps + 1))` (additive)
+* Weighted distance: `q.append((neighbor, dist + edge_wt))`
+
+The popped scalar is the **shared parent** of all children being pushed. Mutate it and you've made the children sequentially dependent on each other — but they shouldn't be, they're siblings.
+
 ### 7a. Visited vs Container — The One-Line Rule
 
 **Visited always stores node identity only — at most node + direction tag. NEVER weights/costs/steps.** Those live in the container with the node.
@@ -503,7 +530,7 @@ Both approaches work. Pick whichever clicks.
 6. **Using the same visited set across multiple independent BFS runs.** Each query with a different source needs a FRESH visited set. Old visited set blocks paths that the new query needs.
 7. **Level-order BFS: forgetting `len(q)` snapshot.** Must capture `level_length = len(q)` BEFORE the inner for loop. If you check `len(q)` during the loop, it changes as you add children.
 8. **Putting the carried value in visited.** `visited.add((node, value))` breaks BFS — same node reached via different paths gets reprocessed, exponential revisits in graphs with cycles. Visited = node ONLY. See §7a.
-9. **Reassigning the carried scalar inside the neighbor for-loop.** `value = value * weight` before pushing mutates the prefix that ALL remaining neighbors need. Second neighbor inherits first neighbor's multiplication. Always compute inline: `q.append((neighbor, value * weight))`.
+9. **Reassigning the carried scalar inside the neighbor for-loop.** See §7-prefix (Frozen Prefix Rule). Compute inline in `append`, never mutate the local scalar.
 10. **Mutating the grid instead of using a visited set.** Marking cells as walls destroys input. Use `visited` set — cleaner, no side effects.
 
 ---
