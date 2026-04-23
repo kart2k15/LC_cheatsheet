@@ -8,7 +8,7 @@ First thing you check. The input format tells you what data structure you're wor
 
 Input is a list of lists. Each index = a node. Inner list = that node's neighbors.
 
-```python
+```
 rooms = [[1], [2], [3], []]
 # rooms[0] = [1] means node 0 connects to node 1
 # This IS an adjacency list. Use it directly.
@@ -21,7 +21,7 @@ rooms = [[1], [2], [3], []]
 
 Input is an n × n 2D array. `matrix[i][j] = 1` means node i connects to node j.
 
-```python
+```
 isConnected = [[1,1,0], [1,1,0], [0,0,1]]
 # Rows AND columns represent the SAME thing (cities).
 # isConnected[0][1] = 1 means city 0 connects to city 1.
@@ -39,7 +39,7 @@ isConnected = [[1,1,0], [1,1,0], [0,0,1]]
 
 2D grid where each cell is a node. Neighbors = up/down/left/right (4 directions).
 
-```python
+```
 grid = [[1,1,0], [0,1,0], [1,0,1]]
 # Each cell (r, c) is a node.
 # Neighbors: (r-1,c), (r+1,c), (r,c-1), (r,c+1)
@@ -53,7 +53,7 @@ grid = [[1,1,0], [0,1,0], [1,0,1]]
 
 Input is a list of pairs. Each pair = an edge. NOT an adjacency list — you must convert it.
 
-```python
+```
 connections = [[0,1], [1,3], [2,3], [4,0], [4,5]]
 # Each [a, b] = one edge between a and b.
 # This is NOT ready to use. You must build an adjacency list from it.
@@ -64,7 +64,7 @@ connections = [[0,1], [1,3], [2,3], [4,0], [4,5]]
 
 **Building adjacency list from edge list:**
 
-```python
+```
 # Undirected — both directions are real
 graph = {i: [] for i in range(n)}
 for a, b in connections:
@@ -80,9 +80,9 @@ for a, b in connections:
 **When are "both directions real" vs "only one direction real"?**
 
 | Situation | Both directions real? | Example |
-|---|---|---|
+| --- | --- | --- |
 | Division: a/b = 2 means b/a = 0.5 | YES — both are math facts | LC 399 |
-| Friendship: a knows b means b knows a | YES — symmetric relationship | |
+| Friendship: a knows b means b knows a | YES — symmetric relationship |  |
 | One-way road: a → b only | NO — reverse is artificial | LC 1466 |
 | Prerequisite: must take a before b | NO — reverse doesn't make sense | Course Schedule |
 
@@ -97,12 +97,14 @@ If only one direction is real but you need to traverse both ways, you add the re
 If you're building from an edge list, use adjacency list. Always. Here's why:
 
 | Factor | Adjacency List | Adjacency Matrix |
-|---|---|---|
+| --- | --- | --- |
 | Default choice | YES | Only if problem gives it |
 | Memory | O(V + E) | O(V²) — explodes for large n |
 | Max practical n | 10^5 easily | ~500 before memory dies |
 | Finding neighbors | Fast — just iterate the list | Must scan entire row of n entries |
 | "Is X connected to Y?" | Slower — scan the list | O(1) — just matrix[X][Y] |
+
+
 
 ---
 
@@ -112,7 +114,7 @@ This is the exact sequence of operations. Not hand-wavy. Exactly what happens.
 
 ### Setup
 
-```python
+```
 from collections import deque
 
 visited = set()        # tracks which nodes we've already fully processed
@@ -123,7 +125,7 @@ q = deque([start])     # queue (FIFO) — start must be in here to kick off BFS
 
 ### The Loop — One Node Per Iteration
 
-```python
+```
 while q:
     node = q.popleft()                    # STEP 1: pop ONE node from FRONT of queue
 
@@ -142,12 +144,12 @@ while q:
 
 1. **Pop exactly ONE node** from the front of the queue.
 2. **Check if it's already in visited.**
-   - If YES → skip this node entirely. Go to next iteration. Do nothing.
-   - If NO → continue to step 3.
+   * If YES → skip this node entirely. Go to next iteration. Do nothing.
+   * If NO → continue to step 3.
 3. **Add it to the visited set.** It's now stamped. Won't be processed again.
 4. **Scan every neighbor of this node.** For each neighbor:
-   - Is the neighbor already in visited? → skip it, don't add to queue.
-   - Is the neighbor NOT in visited? → add it to the queue.
+   * Is the neighbor already in visited? → skip it, don't add to queue.
+   * Is the neighbor NOT in visited? → add it to the queue.
 5. **This node is done.** Move to next iteration → pop the next node from the queue.
 
 ### CRITICAL: Steps 3 and 4 Are ONE Combined Step
@@ -188,7 +190,7 @@ The honest rule: every node in the queue got there because it was a neighbor of 
 
 If you need to count flips, track distances, accumulate products — that logic goes inside `if node not in visited` and inside `if neighbor not in visited`. NEVER outside.
 
-```python
+```
 # WRONG — counts a flip for an already-visited neighbor
 for neighbor in graph[node]:
     if (node, neighbor) in og_edges:
@@ -212,7 +214,7 @@ DFS is the SAME 3 steps as BFS. Only difference: swap queue for stack.
 
 ### Iterative DFS (Stack)
 
-```python
+```
 visited = set()
 stack = [start]
 
@@ -240,7 +242,7 @@ That's literally the only code difference between BFS and DFS.
 
 ### Recursive DFS
 
-```python
+```
 def dfs(node, visited):
     if node in visited:
         return
@@ -254,8 +256,8 @@ The call stack IS the stack. Cleaner code for tree-shaped problems. Warning: Pyt
 
 ### BFS vs DFS — Side by Side
 
-| | BFS | DFS (iterative) | DFS (recursive) |
-|---|---|---|---|
+|  | BFS | DFS (iterative) | DFS (recursive) |
+| --- | --- | --- | --- |
 | Container | `deque` | `list` (stack) | call stack |
 | Add | `append` | `append` | recurse |
 | Remove | `popleft` | `pop` | return |
@@ -275,7 +277,7 @@ When the problem cares about LEVELS (level number, rightmost at each level, sum 
 **Plain BFS** has one while loop — one node per iteration.
 **Level-order BFS** has an outer while loop AND an inner for loop.
 
-```python
+```
 q = deque([root])
 
 while q:                              # OUTER: one iteration = one FULL LEVEL
@@ -305,8 +307,9 @@ Still only one node popped per inner iteration. But you process an entire level'
 **One BFS from node X gives you the path/distance from X to EVERY other node in the graph.** Not just one target. All of them. BFS radiates outward from one starting point.
 
 So:
-- **Same source, multiple targets?** One BFS. Start from source, find all targets in one run.
-- **Different sources?** Separate BFS per source. Starting from `a` gives you `a`'s paths. Starting from `b` gives completely different paths. Can't combine them — each needs its own visited set and its own starting state.
+
+* **Same source, multiple targets?** One BFS. Start from source, find all targets in one run.
+* **Different sources?** Separate BFS per source. Starting from `a` gives you `a`'s paths. Starting from `b` gives completely different paths. Can't combine them — each needs its own visited set and its own starting state.
 
 Example: LC 399 (Evaluate Division) has queries `a/c`, `b/a`, `x/x` — three different starting points → three separate BFS runs. No shortcut.
 
@@ -315,13 +318,14 @@ Example: LC 399 (Evaluate Division) has queries `a/c`, `b/a`, `x/x` — three di
 Start BFS from ONE node. Explore everything reachable from that node.
 
 **Examples:**
-- Keys and Rooms — start from room 0, can we reach all rooms?
-- Shortest path from A to B
-- LC 1466 — BFS from city 0, count wrong-direction roads
+
+* Keys and Rooms — start from room 0, can we reach all rooms?
+* Shortest path from A to B
+* LC 1466 — BFS from city 0, count wrong-direction roads
 
 **Pattern:**
 
-```python
+```
 visited = set()
 q = deque([start])
 while q:
@@ -333,12 +337,13 @@ while q:
 Loop through ALL nodes. Start a new BFS from every unvisited one. Each new BFS = one more connected component.
 
 **Examples:**
-- Number of Provinces — count disjoint groups of cities
-- Number of Islands — count disjoint 1-clusters in a grid
+
+* Number of Provinces — count disjoint groups of cities
+* Number of Islands — count disjoint 1-clusters in a grid
 
 **Pattern:**
 
-```python
+```
 visited = set()
 components = 0
 
@@ -362,27 +367,135 @@ Standard BFS just tracks "visited or not." Weighted BFS carries a number along t
 
 **The only change:** Queue stores `(node, running_value)` instead of just `node`. When adding a neighbor, combine the current value with the edge weight.
 
-```python
+```
 q = deque([(start, initial_value)])  # start with initial value (1.0 for product, 0 for distance)
-visited = {start}
+visited = set()
 
 while q:
     node, value = q.popleft()
 
-    if node == target:
-        return value              # found it — value IS the answer
+    if node not in visited:
+        visited.add(node)
 
-    for neighbor, weight in graph[node]:
-        if neighbor not in visited:
-            visited.add(neighbor)
-            q.append((neighbor, value * weight))    # for products (LC 399)
-            # or: q.append((neighbor, value + weight))  # for distances
-            # or: q.append((neighbor, value + 1))       # for unweighted shortest path
+        if node == target:
+            return value              # found it — value IS the answer
+
+        for neighbor, weight in graph[node]:
+            if neighbor not in visited:
+                q.append((neighbor, value * weight))    # for products (LC 399)
+                # or: q.append((neighbor, value + weight))  # for distances
+                # or: q.append((neighbor, value + 1))       # for unweighted shortest path
 ```
 
 **Examples:**
-- LC 399 (Evaluate Division): `value = product`, `combine = multiply`, `initial = 1.0`
-- Shortest path: `value = distance`, `combine = add 1`, `initial = 0`
+
+* LC 399 (Evaluate Division): `value = product`, `combine = multiply`, `initial = 1.0`
+* LC 1926 (Nearest Exit from Maze): `value = steps`, `combine = add 1`, `initial = 0`
+* Shortest path in unweighted graph: `value = distance`, `combine = add 1`, `initial = 0`
+
+### 7a. THE RULE — What Goes in Visited, What Goes in the Tuple
+
+This is the question you WILL ask yourself every single weighted-BFS problem: "do I put the carried value in visited too?"
+
+**Answer: NO. EVER. For every LC 75 graph problem.**
+
+**Visited = node ONLY.** The carried value (product, steps, cost) lives in the queue tuple, NEVER in the visited key.
+
+**Why.** Visited answers one question: "have I already processed this node?" A node is identified by its position in the graph (string name, (r,c) coordinates, integer id) — NOT by the path you took to get to it.
+
+The carried value is a per-path property. It belongs WITH the node in the queue so BFS knows which path's accumulated value to work with when it pops. But it does NOT belong in visited.
+
+**What breaks if you DO put the value in visited:**
+
+Say node X is reachable two ways:
+
+```
+Path A: start → X in 2 steps
+Path B: start → detour → X in 4 steps
+```
+
+If visited keys are `(node, value)`:
+
+1. First time we reach X with steps=2 → add `(X, 2)` to visited.
+2. BFS later reaches X via the longer path with steps=4 → check `(X, 4) in visited` → FALSE (because stored key is `(X, 2)`).
+3. So we process X AGAIN, push all its neighbors AGAIN with inflated step counts.
+4. Downstream cells get reprocessed multiple times with worse values.
+
+In a big graph with cycles this can explode into exponential revisits. And it breaks BFS's correctness guarantee: *the first pop of a node IS the best path to it.*
+
+### 7b. Why "First Pop = Best Path" — BFS's Core Guarantee
+
+BFS pops nodes in order of distance from start (fewest edges first). So the first time a node comes out of the queue, it came via a fewest-edges path. Any later arrival via some other path MUST have taken MORE edges to get there — strictly no better, never improves the answer.
+
+This is ONLY true because every edge costs the same (1 step). Which means BFS's guarantee applies to:
+
+* Unweighted graphs where you want fewest edges
+* Problems where ANY valid path's value is acceptable (LC 399 — "return any path's product")
+
+### 7c. The 3 AM Mental Test
+
+Ask yourself: **"If I reach the same node via a different path with a different value, could that second path give me a BETTER answer than the first?"**
+
+| Algorithm | Same node reached again — could second arrival be better? | Visited is... |
+| --- | --- | --- |
+| BFS on unweighted graph (fewest edges) | NO — first pop is already fewest edges | Just node |
+| BFS on LC 399-style (any valid path) | NO — problem accepts any path | Just node |
+| BFS on LC 1926-style grid (min steps) | NO — every step costs 1, first pop wins | Just node |
+| Dijkstra on weighted graph (min cost, variable edge weights) | YES — need to handle this | `{node: best_cost_so_far}`; process only if incoming cost < stored best |
+| Bellman-Ford (negative edges possible) | YES — need relaxation-based approach | No visited; full `dist[]` array with repeated relaxation |
+
+**For LC 75: the answer is always NO. Visited = node only. Always.**
+
+### 7d. When BFS Stops Being Enough — The Dijkstra Boundary
+
+BFS breaks the moment edges have DIFFERENT costs and you want MINIMUM COST (not minimum edges).
+
+Example:
+
+```
+    A
+   / \
+  10  1
+ /     \
+B       C
+ \     /
+  1   100
+   \ /
+    D
+```
+
+BFS from A to D:
+
+* pop A. push B (depth 1), push C (depth 1)
+* pop B. push D (depth 2)
+* pop C. D already visited → skip
+* pop D. Return 2 edges.
+
+BFS says "2 edges, shortest." But if the problem wants **minimum cost**:
+
+* A→B→D costs 10 + 1 = 11
+* A→C→D costs 1 + 100 = 101
+
+BFS found the 2-edge path (either one, by mechanics). If it returned A→C→D that's cost 101 — wrong. The RIGHT answer for min cost is A→B→D with cost 11.
+
+This is where Dijkstra comes in. Not in LC 75, but recognize the shape:
+
+**Trigger:** "minimum cost" / "cheapest path" + variable edge weights → Dijkstra, not BFS.
+
+In Dijkstra:
+
+* Min-heap instead of queue (pops in cost order, not insertion order)
+* Track `best_cost[node]` — only process a popped entry if its cost equals the stored best (skip stale heap entries)
+* First pop from heap = guaranteed best cost to that node
+
+### 7e. Summary
+
+```
+visited = set of NODES only          # this is the identity
+queue   = tuples of (node, value)    # value travels WITH the path
+```
+
+The node identity and the path's accumulated value are separate concepts. Conflating them into one visited key breaks BFS correctness. Keep them separate.
 
 ---
 
@@ -392,7 +505,7 @@ while q:
 
 `a / b = 2.0` means `a → b (weight 2.0)` AND `b → a (weight 0.5)`. Both are true math facts. Nothing artificial. Just add both.
 
-```python
+```
 graph[a].append((b, w))
 graph[b].append((a, 1.0 / w))
 ```
@@ -405,7 +518,7 @@ Problem says road goes `a → b` only. But you need to traverse both ways for BF
 
 Build the adjacency list ignoring direction (both ways). Store the original directions separately. During BFS, check the set to know which way was original.
 
-```python
+```
 # remember original directions
 og_edges = set()
 for a, b in connections:
@@ -435,7 +548,7 @@ for neighbor in graph[city]:
 
 Add both directions to the adjacency list, but tag each with a cost: 1 = original direction (wrong), 0 = reverse direction (correct).
 
-```python
+```
 graph = {i: [] for i in range(n)}
 for a, b in connections:
     graph[a].append((b, 1))  # original a → b: if we walk this way, count it
@@ -449,7 +562,7 @@ Both approaches work. Pick whichever clicks.
 ## 9. Pattern Recognition — Which Problem Type Am I Looking At?
 
 | Keywords in Problem | Likely Pattern |
-|---|---|
+| --- | --- |
 | "Starting from X, can we reach Y/all?" | Single-source BFS/DFS |
 | "How many groups/islands/provinces?" | Multi-source BFS/DFS, count components |
 | "Shortest path in unweighted graph" | BFS with distance tracking |
@@ -459,24 +572,24 @@ Both approaches work. Pick whichever clicks.
 | "Cycle detection" | DFS with "in current path" tracking |
 | "Topological order / prerequisites" | DFS post-order or BFS with in-degree |
 | "Level-by-level / rightmost / level sum" | Level-order BFS with inner for loop |
+| "Nearest exit / min steps in maze" | BFS on grid, (r,c,steps) tuple, visited = (r,c) only |
+
+
 
 ---
 
 ## 10. Common Traps
 
 1. **Neighbor logic outside the visited check.** Any counting, flipping, cost tracking must be INSIDE `if neighbor not in visited`. Otherwise you count edges to already-processed nodes.
-
 2. **Forgetting to add neighbors to the queue.** You scan neighbors AND add them. If you scan but don't append, BFS never goes deeper than the start node.
-
 3. **Directed adj list when you need to traverse both ways.** If the graph is directed but you need to reach every node from one starting point, you must add reverse edges (with tags) or build undirected + separate direction set.
-
 4. **Adjacency matrix for large n.** n = 50,000 → matrix is 2.5 billion cells. Use adjacency list.
-
-5. **Grid problems: forgetting bounds check.** `(r-1, c)` when r=0 → index -1 → wrong cell or crash.
-
+5. **Grid problems: forgetting bounds check.** `(r-1, c)` when r=0 → index -1 → Python silently wraps to LAST row, gives wrong answer without crashing. Bounds-check BEFORE indexing.
 6. **Using the same visited set across multiple independent BFS runs.** Each query with a different source needs a FRESH visited set. Old visited set blocks paths that the new query needs.
-
 7. **Level-order BFS: forgetting `len(q)` snapshot.** Must capture `level_length = len(q)` BEFORE the inner for loop. If you check `len(q)` during the loop, it changes as you add children.
+8. **Putting the carried value in visited.** `visited.add((node, value))` breaks BFS — same node reached via different paths gets reprocessed, exponential revisits in graphs with cycles. Visited = node ONLY. See §7a.
+9. **Reassigning the carried scalar inside the neighbor for-loop.** `value = value * weight` before pushing mutates the prefix that ALL remaining neighbors need. Second neighbor inherits first neighbor's multiplication. Always compute inline: `q.append((neighbor, value * weight))`.
+10. **Mutating the grid instead of using a visited set.** Marking cells as walls destroys input. Use `visited` set — cleaner, no side effects.
 
 ---
 
@@ -488,11 +601,11 @@ Each iteration processes exactly ONE node:
 
 1. **Pop** exactly one node from the container.
 2. **If not already in visited:**
-   - Add it to the visited set.
-   - Scan ALL its neighbors. For each neighbor:
-     - Already in visited? → skip, do NOT add to container.
-     - Not in visited? → add to container. Any counting/cost logic goes here too.
-   - (If already visited → skip everything. Do nothing. Next iteration.)
+   * Add it to the visited set.
+   * Scan ALL its neighbors. For each neighbor:
+     + Already in visited? → skip, do NOT add to container.
+     + Not in visited? → add to container. Any counting/cost logic goes here too.
+   * (If already visited → skip everything. Do nothing. Next iteration.)
 3. **Next iteration:** pop the next node from the container. The container decides which node — BFS pops the oldest (front), DFS pops the newest (end). This node might be a neighbor of the previous node or a neighbor of something from many iterations ago.
 
 **Repeat until the container is empty.**
@@ -500,6 +613,9 @@ Each iteration processes exactly ONE node:
 Steps 2a (add to visited) and 2b (scan neighbors + add to container) are ONE combined step. You never leave a node and come back later to scan its neighbors. You do everything while you're there.
 
 Same skeleton for every graph problem. The only things that change per problem:
-- How you find neighbors (adj list lookup, matrix row scan, grid 4-directions)
-- What you carry in the container (just the node, or node + distance, or node + product)
-- What you count (components, flips, products, distances)
+
+* How you find neighbors (adj list lookup, matrix row scan, grid 4-directions)
+* What you carry in the container (just the node, or node + distance, or node + product)
+* What you count (components, flips, products, distances)
+
+**And one invariant no matter what:** visited holds NODES only. The carried value lives in the queue tuple. Never conflate them.
