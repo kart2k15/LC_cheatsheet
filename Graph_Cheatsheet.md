@@ -101,8 +101,10 @@ If you're building from an edge list, use adjacency list. Always. Here's why:
 | Default choice | YES | Only if problem gives it |
 | Memory | O(V + E) | O(V²) — explodes for large n |
 | Max practical n | 10^5 easily | ~500 before memory dies |
-| Finding neighbors | Fast — just iterate the list | Must scan entire row of n entries |
-| "Is X connected to Y?" | Slower — scan the list | O(1) — just matrix[X][Y] |
+| Finding neighbors of node k | O(degree(k)) — iterate the list | O(V) — scan entire row |
+| "Is X connected to Y?" | O(degree(X)) — scan the list | O(1) — just matrix[X][Y] |
+| Build from edge list E | O(E) time | O(V² + E) time — init + fill |
+| Full BFS/DFS traversal | O(V + E) | O(V²) — always, even if sparse |
 
 
 
@@ -111,6 +113,8 @@ If you're building from an edge list, use adjacency list. Always. Here's why:
 ## 3. BFS — The Precise Mechanical Steps
 
 This is the exact sequence of operations. Not hand-wavy. Exactly what happens.
+
+**Complexity:** Time O(V + E) — each node popped once, each edge checked once. Space O(V) for the queue + visited set. Worst-case queue size = O(V) when a level holds every node (star graph from root).
 
 ### Setup
 
@@ -212,6 +216,8 @@ for neighbor in graph[node]:
 
 DFS is the SAME 3 steps as BFS. Only difference: swap queue for stack.
 
+**Complexity:** Time O(V + E) — same as BFS. Space O(V) for stack + visited. Recursive DFS uses O(H) call stack where H = longest path from root; if H > ~1000, Python hits recursion limit → use iterative for large/deep graphs.
+
 ### Iterative DFS (Stack)
 
 ```
@@ -274,6 +280,8 @@ Both BFS and DFS give the same answer. Same visited set at the end. Pick one, be
 
 When the problem cares about LEVELS (level number, rightmost at each level, sum per level), the structure changes slightly.
 
+**Complexity:** Time O(V + E). Space O(W) where W = max width of any level (worst case O(V) for a bushy graph, O(1) for a path).
+
 **Plain BFS** has one while loop — one node per iteration.
 **Level-order BFS** has an outer while loop AND an inner for loop.
 
@@ -332,14 +340,18 @@ while q:
     # ... standard BFS ...
 ```
 
-### Multi Source (Connected Components)
+### Multi Source — Two Flavors
 
-Loop through ALL nodes. Start a new BFS from every unvisited one. Each new BFS = one more connected component.
+**Both flavors** share the observation that there are multiple "starting" nodes. What differs is WHEN the BFS runs happen and whether they interact.
+
+#### Flavor 1: Component Counting (separate BFS per unvisited node)
+
+Loop through ALL nodes. Start a new BFS from every unvisited one. Each new BFS = one more connected component. BFS runs are independent — each carves out its own component, then the outer loop finds the next uncharted territory.
 
 **Examples:**
 
-* Number of Provinces — count disjoint groups of cities
-* Number of Islands — count disjoint 1-clusters in a grid
+* LC 547 Number of Provinces — count disjoint groups of cities
+* LC 200 Number of Islands — count disjoint 1-clusters in a grid
 
 **Pattern:**
 
@@ -357,13 +369,61 @@ for node in all_nodes:
 return components
 ```
 
+**Complexity:** Time O(V + E) total across all BFS runs — not O(V * (V + E))! The shared `visited` set ensures each node is processed exactly once across all the BFS invocations. Space O(V).
+
 **The counting trick:** Each time the outer for-loop finds an unvisited node and kicks off a new BFS = one more connected component. The inner BFS marks everything in that component as visited so the outer loop skips them.
+
+#### Flavor 2: Parallel Wavefront (ONE BFS with multiple seeds)
+
+ONE unified BFS with ALL sources seeded in the queue before the loop starts. The wavefront radiates outward from every source simultaneously. First time BFS reaches any node = distance to the CLOSEST source.
+
+Use when the problem describes something spreading from multiple starting points in parallel — infection, rot, fire, signal — and asks for "minimum time until everything is converted" or similar.
+
+**Examples:**
+
+* LC 994 Rotting Oranges — seed queue with every rotten orange, count minutes until all fresh oranges rot.
+* LC 542 01 Matrix — seed with every 0, BFS outward finds each cell's distance to nearest 0.
+
+**Pattern (level-order for time tracking):**
+
+```
+q = deque()
+for node in all_sources:              # SEED ALL SOURCES at t=0
+    q.append(node)
+
+time = 0
+while q:
+    level_size = len(q)               # snapshot: current wavefront
+    for _ in range(level_size):
+        node = q.popleft()
+        for neighbor in get_neighbors(node):
+            if neighbor is still unprocessed:
+                mark neighbor processed
+                q.append(neighbor)    # next wavefront
+    time += 1                         # (guard with "did anything change?" if needed)
+```
+
+**Complexity:** Time O(V + E) — still just one BFS, each node/edge touched once regardless of how many sources seeded the queue. Space O(V).
+
+**Key insight — why separate BFS per source would be WRONG here:** If you ran one BFS per source and took the min, the per-run distances would be computed relative to each single source and you'd have to combine them. The unified wavefront handles this naturally — BFS pops in distance order, so the first time a node is reached it's via the closest source, full stop.
+
+#### Quick decision: Flavor 1 or Flavor 2?
+
+| Question | Flavor |
+| --- | --- |
+| "How many disjoint groups exist?" | Flavor 1 (component counting) |
+| "Starting from all X's at once, min time to convert all Y's?" | Flavor 2 (parallel wavefront) |
+| "For every cell, distance to nearest X?" | Flavor 2 (parallel wavefront) |
+| Sources never interact (counting disjoint sets) | Flavor 1 |
+| Sources spread simultaneously into shared space | Flavor 2 |
 
 ---
 
 ## 7. Weighted BFS — Carrying a Value Along the Path
 
 Standard BFS just tracks "visited or not." Weighted BFS carries a number along the path — distance, product, cost, etc.
+
+**Complexity:** Time O(V + E), same as plain BFS. Carrying a scalar in the queue tuple is O(1) extra per node. Space O(V).
 
 **The only change:** Queue stores `(node, running_value)` instead of just `node`. When adding a neighbor, combine the current value with the edge weight.
 
@@ -426,12 +486,12 @@ The popped scalar is the **shared parent** of all children being pushed. Mutate 
 
 **Container choice is driven by what "shortest" means in the problem:**
 
-| Problem asks for... | Container | Notes |
-| --- | --- | --- |
-| Min edges / min steps (unweighted) | `deque` (BFS) | First pop of any node = fewest edges to it. LC 1926, all grid BFS. |
-| Any valid path's value | `deque` (BFS) | Problem accepts any path → first found wins. LC 399. |
-| Min-weight path (variable edge costs) | `heapq` (Dijkstra) | Pop in cost order, not insertion order. Not in LC 75. |
-| Min-weight path with negative edges | no container — `dist[]` array + relaxation (Bellman-Ford) | Not in LC 75. |
+| Problem asks for... | Container | Time | Notes |
+| --- | --- | --- | --- |
+| Min edges / min steps (unweighted) | `deque` (BFS) | O(V + E) | First pop of any node = fewest edges to it. LC 1926, all grid BFS. |
+| Any valid path's value | `deque` (BFS) | O(V + E) | Problem accepts any path → first found wins. LC 399. |
+| Min-weight path (variable edge costs) | `heapq` (Dijkstra) | O((V + E) log V) | Pop in cost order, not insertion order. Not in LC 75. |
+| Min-weight path with negative edges | no container — `dist[]` array + relaxation (Bellman-Ford) | O(V · E) | Not in LC 75. |
 
 The moment the problem moves from "min edges" to "min weighted cost with variable edge weights," you swap the container from queue to heap. Visited stays the same — node identity only.
 
@@ -515,6 +575,8 @@ Both approaches work. Pick whichever clicks.
 | "Topological order / prerequisites" | DFS post-order or BFS with in-degree |
 | "Level-by-level / rightmost / level sum" | Level-order BFS with inner for loop |
 | "Nearest exit / min steps in maze" | BFS on grid, (r,c,steps) tuple, visited = (r,c) only |
+| "Spreading / infection / min time until all convert" | Multi-source parallel wavefront (§6 Flavor 2), seed queue with ALL sources at t=0 |
+| "For each cell, distance to nearest X" | Multi-source parallel wavefront, seed queue with every X |
 
 
 
@@ -561,3 +623,37 @@ Same skeleton for every graph problem. The only things that change per problem:
 * What you count (components, flips, products, distances)
 
 **And one invariant no matter what:** visited holds NODES only. The carried value lives in the queue tuple. Never conflate them.
+
+---
+
+## 12. Complexity Cheat Sheet
+
+For interviews and 3 AM sanity checks. V = nodes, E = edges, H = longest root-to-leaf path, W = max level width.
+
+### By representation
+
+| Structure | Space | Build from edge list | Lookup edge (X,Y)? | Iterate neighbors of k |
+| --- | --- | --- | --- | --- |
+| Adj list | O(V + E) | O(E) | O(degree(X)) | O(degree(k)) |
+| Adj matrix | O(V²) | O(V² + E) | O(1) | O(V) |
+| Grid (implicit) | O(V) = O(m·n) | N/A (given) | O(1) | O(1) (4 dirs) |
+
+### By algorithm
+
+| Algorithm | Time | Space | When to use |
+| --- | --- | --- | --- |
+| BFS (single source) | O(V + E) | O(V) | Shortest path unweighted, reachability |
+| DFS iterative | O(V + E) | O(V) | Reachability, cycle detect, topological |
+| DFS recursive | O(V + E) | O(H) call stack | Same as iterative, but H < 1000 to avoid stack overflow |
+| Multi-source Flavor 1 (components) | O(V + E) total | O(V) | Count disjoint groups |
+| Multi-source Flavor 2 (wavefront) | O(V + E) | O(V) | Spreading/min-time with multiple starting points |
+| Weighted BFS (any path, or unweighted shortest) | O(V + E) | O(V) | LC 399, LC 1926 |
+| Dijkstra | O((V + E) log V) | O(V) | Min-weight path with non-negative edges |
+| Bellman-Ford | O(V · E) | O(V) | Min-weight path with negative edges |
+
+### Common gotchas
+
+* Adj matrix on large n explodes: n=50,000 → 2.5 billion cells → OOM. Use adj list.
+* Recursive DFS on long paths (linked-list-like graphs) → Python recursion limit ~1000. Use iterative.
+* Multi-source Flavor 1 is O(V+E) TOTAL, not O(V·(V+E)). Shared visited set is the key.
+* BFS queue worst case = O(V) (bushy level, not O(E) — edges aren't stored in the queue).
