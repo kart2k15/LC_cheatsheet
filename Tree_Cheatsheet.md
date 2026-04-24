@@ -27,6 +27,8 @@ def solve(node):
 **Key insight:** Every recursive call is a PAUSE. The function stops at that line,
 waits for the entire subtree to finish, gets the return value, THEN moves to the next line.
 
+**Complexity (applies to almost every tree problem):** Time O(n) — each node visited once. Space O(h) for the recursion call stack, where h = tree height. Balanced tree → h = O(log n). Skewed tree (linked-list shape) → h = O(n). If h > ~1000, Python hits recursion limit → switch to iterative.
+
 ---
 
 ## 2. The Helper Method Pattern
@@ -101,6 +103,8 @@ def get_leaves(node):
 ## 5. Bubbling Up vs Bubbling Down
 
 This is the most important concept for deciding your approach.
+
+**Complexity note for both:** Time O(n) — every node visited exactly once either way. The direction (up vs down) doesn't change the complexity, only where the result lives (return value vs outside variable).
 
 ### Bubbling DOWN (Pre-order)
 
@@ -177,16 +181,31 @@ left child < parent < right child. Always. At every node.
 ```
 
 **Why it matters:**
-- BT problems — you must visit every node. No shortcuts.
+- BT problems — you must visit every node. No shortcuts. Time O(n).
 - BST problems — you can skip entire subtrees because you know where values are.
   Looking for 25? It's > 20 so go right. It's < 30 so go left. Found it. Never touched left subtree.
 - In-order traversal on BST = sorted output. Always. This is the main BST trick on LC.
+
+**BST operation complexity:**
+
+| Operation | Balanced BST | Skewed BST (degenerate, like linked list) |
+| --- | --- | --- |
+| Search / insert / delete | O(log n) | O(n) |
+| In-order traversal (sorted) | O(n) | O(n) |
+| Find kth smallest | O(k + h) | O(k + n) |
+
+LC doesn't usually hand you a guaranteed-balanced BST unless the problem says so. Assume skewed is possible unless told otherwise — but most LC BST problems still fit in the "visit all n nodes" O(n) bucket when doing full traversals.
 
 ---
 
 ## 7. The 4 Traversals
 
 Four ways to visit every node. Three are DFS (go deep). One is BFS (go wide).
+
+**Complexity (all four):** Time O(n). Space varies:
+- DFS (pre/in/post, recursive): O(h) call stack
+- DFS iterative: O(h) explicit stack
+- Level-order BFS: O(w) queue where w = max level width (up to n/2 for a full binary tree)
 
 ```
         *
@@ -349,6 +368,8 @@ Don't think about traversal names. Ask ONE question:
 
 Some problems use a shared data structure (like a frequency map) during traversal. When you finish exploring a node's subtrees and are about to go BACK UP, you must UNDO your changes to that shared structure.
 
+**Complexity:** Still O(n) time for the traversal. Cleanup operation is O(1) per node (map insert/decrement), so total overhead is O(n). Space is O(h) call stack + O(number of unique keys in the map).
+
 ### When You Need Cleanup
 
 When a shared map/set should only contain info about ANCESTORS on the current path from root to the current node. Siblings and cousins are NOT ancestors.
@@ -414,6 +435,8 @@ while stack:
 # Now you can walk from ANY node up to root using parent[node]
 ```
 
+**Complexity:** Time O(n) to build the parent map. Space O(n) for the dict (one entry per node). Walking upward from any node is O(h) per walk — cheap when h is small, O(n) worst case.
+
 **When to use:** When you need to trace ancestry (LCA), find paths between arbitrary nodes, or when the recursive solution's early-return logic is too confusing.
 
 **Example:** LCA — trace p's ancestors into a set, walk q upward until you hit someone in that set. First match = LCA (because you're walking from bottom up, first match is the LOWEST common ancestor).
@@ -421,6 +444,8 @@ while stack:
 ### Level-Order BFS (Queue)
 
 When the problem is about levels, not depth. See Section 7 in the traversals above and the Graph Cheatsheet for full BFS mechanics.
+
+**Complexity:** Time O(n), space O(w) where w = max level width (up to ~n/2 for a full binary tree — every leaf at the bottom level).
 
 ---
 
@@ -485,3 +510,28 @@ The skeleton is always the same. Only these things change:
 | Outside variable | `self.count`, `self.max_length`, `self.result` | Only for pre-order patterns where you accumulate without returning |
 | Cleanup needed? | Yes if shared mutable state, No if just params + returns | Am I modifying a map/set that persists across calls? |
 | Helper method? | Yes if you need extra params or outside variable | Does LC's function signature have everything I need? |
+
+---
+
+## 14. Complexity Cheat Sheet
+
+For interviews and 3 AM sanity checks. n = nodes, h = tree height, w = max level width.
+
+| Pattern | Time | Space | Notes |
+| --- | --- | --- | --- |
+| DFS recursive (pre/in/post) | O(n) | O(h) call stack | h = O(log n) balanced, O(n) skewed |
+| DFS iterative | O(n) | O(h) explicit stack | Same time, same space — just no recursion limit risk |
+| Level-order BFS | O(n) | O(w) queue | w up to ~n/2 for bushy last level |
+| Bubble down (pre-order with param) | O(n) | O(h) stack + whatever the param holds | Param copied per call frame |
+| Bubble up (post-order with return) | O(n) | O(h) stack | Return values live on the stack briefly |
+| Prefix sum on tree + cleanup | O(n) | O(h) stack + O(unique keys) map | Cleanup is O(1) per node |
+| Parent-pointer iterative + upward walk | O(n) build + O(h) per walk | O(n) parent dict | LCA-style problems |
+| BST search / insert / delete | O(h) | O(h) | O(log n) balanced, O(n) skewed |
+| BST in-order = sorted | O(n) | O(h) | The main BST trick on LC |
+
+### Common gotchas
+
+* Recursive DFS hits Python recursion limit (~1000) on skewed trees (chain-like). Use iterative for large or adversarial inputs.
+* Level-order queue can hold up to n/2 nodes at once (full last level) — not O(1). Worst-case space is real.
+* Cleanup/backtracking doesn't change asymptotic cost (O(1) per node) but is a MUST for correctness on shared-state problems.
+* BST isn't automatically balanced. Problem must say "balanced" or "self-balancing" for you to assume O(log n) operations.
