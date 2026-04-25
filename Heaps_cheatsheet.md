@@ -327,27 +327,57 @@ for each round:
 
 ## 11. Appendix: PROD-Grade API Design for Void Mutators (The "Uber Probe")
 
-Asked at Uber during a hit counter design round: *"how would you write this in PROD — what would you return, how do you check for failures?"* Three patterns on the same `add_back` method:
+Asked at Uber during a hit counter design round: *"how would you write this in PROD — what would you return, how do you check for failures?"* The interviewer was NOT asking about the algorithm. They were probing whether you think about API contracts — what happens when things go right, go wrong, or go weird.
+
+All three patterns below are shown on the **same `add_back` method** so you can see how the same logic looks under each style.
+
+---
 
 ### Pattern A — None + Raise (Internal Code Default)
 
+**What it means:** the method returns nothing on success. On garbage input (wrong type, negative number, etc.) it CRASHES with an exception. The caller's job is to not pass garbage — if they do, it's a bug and should blow up loudly.
+
+On valid no-ops (add_back on a number already in the set), it returns silently. That's not an error — the caller asked a valid question and the answer is "nothing changed."
+
 ```python
 def add_back(self, num):
+    # VALIDATION — bad input = bug = crash loud so the dev notices immediately.
+    # isinstance check catches someone passing a string, float, None, etc.
     if not isinstance(num, int) or num < 1:
         raise ValueError(f"must be positive int, got val={num}, val_type={type(num).__name__}")
+    # VALID NO-OP — num already in the set, nothing to do. Not an error.
     if counter <= num or num in in_heap:
-        return None       # valid no-op
+        return None
+    # ACTUAL MUTATION — num wasn't in the set, add it.
     heappush(exception_heap, num)
     in_heap.add(num)
     return None
 ```
 
-**When:** internal helpers. Loud on bad input, silent on valid no-change.
+**When to use:** internal code, helper functions, anything where the caller is YOUR code and bad input means YOU have a bug. Python standard library follows this pattern — `list.append()` returns None, `set.add()` returns None.
 
-### Pattern B — Bool ("Did This Mutate?")
+**What the caller looks like:**
+
+```python
+set_obj.add_back(num)   # fire and forget — trusts it worked, crashes if input was bad
+```
+
+---
+
+### Pattern B — Bool ("Did This Mutate State?")
+
+**What it means:** same as A, but the method returns `True` if it actually changed something, `False` if it was a no-op. The caller can now REACT to the outcome.
+
+**What "deduplication" means concretely:** imagine a message queue that delivers the same message twice (network retry, consumer restart, etc.). Your handler calls `add_back(5)` twice. First call returns `True` — 5 was added. Second call returns `False` — 5 was already there, duplicate detected. Now you can:
+- Count duplicates for monitoring ("10% of our add_back calls are dupes — our upstream is retrying too aggressively")
+- Skip downstream work ("5 was already processed, don't recompute the report")
+- Log it for debugging ("duplicate add_back for num=5 at 2:34 AM, source=queue_consumer_3")
 
 ```python
 def add_back(self, num) -> bool:
+    if not isinstance(num, int) or num < 1:
+        raise ValueError(f"must be positive int, got val={num}, val_type={type(num).__name__}")
+    # Returns False on no-op so caller knows "nothing changed"
     if counter <= num or num in in_heap:
         return False
     heappush(exception_heap, num)
@@ -355,33 +385,116 @@ def add_back(self, num) -> bool:
     return True
 ```
 
-**When:** caller cares about idempotency — deduplication, retries, metrics.
+**When to use:** any time the caller cares about whether the operation actually did something. Common in:
+- Deduplication systems (message queues, event processing)
+- Retry logic ("did this retry actually accomplish anything or was it redundant?")
+- Metrics/dashboards ("what % of add_back calls are redundant?")
+- Idempotency checks ("calling this 5 times should have the same effect as calling it once")
 
-### Pattern C — Structured Result (API Boundaries)
+**What "idempotency" means concretely:** calling `add_back(5)` once or 100 times has the same final result — 5 is in the set exactly once. The operation is safe to repeat. The bool return tells you WHETHER this particular call was the one that actually did it, without changing the outcome.
+
+**What the caller looks like:**
 
 ```python
-@dataclass
-class AddBackResult:
-    added: bool
-    reason: str    # "added" | "already_in_set" | "in_counter_region"
+was_added = set_obj.add_back(num)
+if was_added:
+    log.info(f"Added {num} to set")
+    downstream_service.notify(num)
+else:
+    metrics.increment("add_back.duplicate")
 ```
 
-**When:** service boundaries — gRPC, REST, observability/dashboards.
+---
 
-### What the Uber Probe Was Really Asking
+### Pattern C — Structured Result (API Boundaries / Observability)
 
-1. **Success/failure contract** — what does the caller see?
-2. **Idempotency** — duplicates handled? Signaled?
-3. **Validation** — bad input: crash, swallow, or report?
-4. **Observability** — logs, metrics, drop reasons.
-5. **Concurrency** — thread-safety implications.
+**What it means:** instead of True/False, return an object with DETAILS about what happened and why. The caller doesn't just know "it didn't work" — they know "it didn't work because num was already in the counter region" vs "it didn't work because num was already in the heap."
+
+**What "structured result" means concretely:** a dataclass (or dict, or protobuf, or JSON response) that bundles the outcome + the reason into one return value.
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class AddBackResult:
+    added: bool       # did the set actually change?
+    reason: str       # WHY — "added", "already_in_set", "in_counter_region"
+
+def add_back(self, num) -> AddBackResult:
+    if counter <= num:
+        return AddBackResult(False, "in_counter_region")
+    if num in in_heap:
+        return AddBackResult(False, "already_in_set")
+    heappush(exception_heap, num)
+    in_heap.add(num)
+    return AddBackResult(True, "added")
+```
+
+**When to use:** service-to-service boundaries where you need observability. Common in:
+- REST APIs (the response body tells the frontend exactly what happened)
+- gRPC handlers (structured response → client reacts differently per reason)
+- Dashboards/monitoring ("35% of failures are 'already_in_set', 65% are 'in_counter_region'" → tells you something about caller behavior)
+- Debugging in production ("why did add_back(7) fail at 3 AM? Check the reason field in the logs")
+
+**Overkill for:** internal helpers, simple scripts, anything where a bool is enough.
+
+**What the caller looks like:**
+
+```python
+result = set_obj.add_back(num)
+if result.added:
+    log.info(f"Added {num}")
+else:
+    log.warn(f"add_back({num}) no-op: {result.reason}")
+    metrics.increment(f"add_back.noop.{result.reason}")
+    # Now your Grafana dashboard shows:
+    # - add_back.noop.already_in_set: 200/hour
+    # - add_back.noop.in_counter_region: 50/hour
+    # and you can reason about WHY no-ops are happening
+```
+
+---
+
+### Summary Table
+
+| Pattern | Returns | Caller sees | Use when |
+| --- | --- | --- | --- |
+| A (None + raise) | None on success, crash on bad input | "It worked" or program crashes | Internal code, simple helpers |
+| B (Bool) | True if mutated, False if no-op | "Did anything change?" | Dedup, retries, metrics, idempotency |
+| C (Structured) | Object with outcome + reason | "What happened and why?" | API boundaries, observability, dashboards |
+
+**Default for interviews:** start with A. Mention B when the interviewer asks about retries/duplicates. Mention C when they ask about observability/monitoring. Each escalation shows you think about progressively more PROD-level concerns.
+
+---
+
+### The 5 Things the Uber Interviewer Was Actually Probing
+
+1. **Success/failure contract** — what does the caller see on success? On failure? On weird edge cases? Is "nothing happened" distinguishable from "it worked"?
+
+2. **Idempotency** — if network hiccups cause the same request to arrive twice, does the system corrupt? Does the caller know the second call was redundant? Can they safely retry without side effects?
+
+3. **Validation** — someone passes `add_back("foo")` or `add_back(-5)`. Do you crash (good — bug caught early), silently swallow (bad — bug hides), or return an error (good for APIs)?
+
+4. **Observability** — when something goes wrong at 3 AM in production, can you figure out what happened from logs/metrics? Does the return value give you enough signal to debug? Can your dashboard show failure breakdowns by reason?
+
+5. **Concurrency** — if two threads call `add_back(5)` simultaneously, do you get 5 in the set once or twice? Do you need a lock? Is the hashset + heap combo thread-safe? (It's not — Python's GIL helps but doesn't guarantee atomicity across multiple data structure mutations.)
+
+---
 
 ### Error Message Hygiene
 
-```python
-# Cleanest — strips <class '...'> wrapper
-f"val={num}, val_type={type(num).__name__}"    # → val=5, val_type=str
+Always include both value AND type in error messages — you need to tell apart `5` (int) from `"5"` (string) from `5.0` (float) when debugging at 3 AM.
 
-# Terser — repr() quotes strings, shows None
-f"val={num!r}"                                  # → val='5'
+```python
+# Cleanest — type(num).__name__ strips the <class '...'> wrapper
+f"val={num}, val_type={type(num).__name__}"
+# Output: val=5, val_type=str
+
+# Terser — Python's repr() automatically quotes strings, shows None as None, etc.
+f"val={num!r}"
+# Output: val='5'
 ```
+
+`type(num).__name__` gives: `str`, `int`, `float`, `NoneType`
+`str(type(num))` gives: `<class 'str'>` — noisier, same info, more typing.
+`type(num)` inside f-string gives: same as `str(type(num))` — f-strings call str() automatically.
