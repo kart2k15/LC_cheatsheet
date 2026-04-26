@@ -33,9 +33,13 @@ Every backtracking problem has these 4 things. The problem only changes WHAT goe
 
 ---
 
-## §3 — The Skeleton
+## §3 — The Two Skeletons
 
-**One skeleton. This is it.**
+Same template, two shapes. The problem tells you which one to use.
+
+### Form 1: For-loop (multiple choices per level)
+
+Use when each level has multiple options to pick from (letters, numbers from a pool, etc).
 
 ```
 def backtrack(params):
@@ -52,13 +56,45 @@ def backtrack(params):
         undo_choice                  # backtracking step
 ```
 
-**Every piece explained:**
+### Form 2: Include/Skip (binary choice per item)
 
-- `params` — whatever state the current level needs (which level, what's been chosen so far, remaining budget, etc.). Changes per problem.
+Use when you walk through items one by one and ask "take it or leave it?" for each.
+
+```
+def backtrack(params):
+    if base_case_condition:
+        results.append(copy_of_solution)
+        return
+
+    if violates_constraints:
+        return
+
+    # Branch 1: include current item
+    make_choice
+    backtrack(updated_params_with_choice)
+    undo_choice
+
+    # Branch 2: skip current item
+    backtrack(updated_params_without_choice)
+```
+
+### When to use which
+
+| Signal | Form |
+|---|---|
+| "Pick a letter from these options" | For-loop — multiple choices per level |
+| "Include this item or skip it" | Include/Skip — binary decision per item |
+| Each level has DIFFERENT options | For-loop |
+| Each level has the SAME question (yes/no) for the next item | Include/Skip |
+
+Both produce decision trees. For-loop makes an n-ary tree. Include/skip makes a binary tree. Same 4 components either way: base case, choices, constraints, undo.
+
+**Pieces explained (same for both forms):**
+
+- `params` — whatever state the current level needs (which item you're on, what's been chosen so far, running total, etc.).
 - `base_case_condition` — path is complete → save a COPY and stop. Reached a leaf of the invisible tree.
-- `choices` — what options exist at this level. Changes per problem.
-- `violates_constraints` — should I skip this option? No constraints = no pruning = try everything.
-- `make_choice` → `backtrack(updated_params)` → `undo_choice` — choose, explore, unchoose. Every make pairs with an undo.
+- `violates_constraints` — should I prune? For-loop: `continue` to skip one option. Include/skip: `return` to cut the whole branch.
+- `make_choice` → `backtrack(...)` → `undo_choice` — choose, explore, unchoose. Every make pairs with an undo.
 - `results` — outer function owns it. Helper mutates it in place. No return needed from helper.
 
 ---
